@@ -1,0 +1,36 @@
+{
+    "name": "qrcommunication/viva-cloud-terminal-sdk",
+    "description": "PHP SDK for Viva Wallet Cloud Terminal API (merchant /ecr/v1/) — EFT POS sale, preauth completion, refunds, sessions",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["viva", "vivawallet", "cloud-terminal", "eft-pos", "ecr", "payment", "sdk"],
+    "authors": [
+        {
+            "name": "QrCommunication",
+            "email": "contact@qrcommunication.com"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "guzzlehttp/guzzle": "^7.8"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.5",
+        "phpstan/phpstan": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "QrCommunication\\VivaCloudTerminal\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "QrCommunication\\VivaCloudTerminal\\Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true
+    }
+}

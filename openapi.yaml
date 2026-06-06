@@ -1,0 +1,384 @@
+openapi: 3.0.3
+info:
+  title: Viva Wallet Cloud Terminal API (merchant /ecr/v1)
+  description: >
+    EFT POS solution allowing an ECR/cash-register to drive a physical card
+    terminal over Viva's REST API. This spec covers the merchant variant
+    (/ecr/v1/). Auth is OAuth2 client_credentials → Bearer token.
+  version: 1.0.0
+servers:
+  - url: https://api.vivapayments.com
+    description: Production
+  - url: https://demo-api.vivapayments.com
+    description: Demo (sandbox)
+security:
+  - bearerAuth: []
+tags:
+  - name: Devices
+  - name: Transactions
+  - name: Sessions
+paths:
+  /ecr/v1/devices:search:
+    post:
+      tags: [Devices]
+      summary: Search POS Devices
+      operationId: searchDevices
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                statusId:
+                  type: integer
+                  description: "0=WareHouse, 1=Live, 2=Ready To Ship, 3=In Stock, 4=Pending Key Injection, 5=Lost, 6=Broken"
+                sourceCode:
+                  type: string
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    terminalId: { type: string }
+                    statusId: { type: integer }
+                    sourceCode: { type: string }
+                    virtualTerminalId: { type: string }
+        '401': { description: Unauthorized }
+        '503': { description: Unable to handle the request }
+
+  /ecr/v1/actions:
+    post:
+      tags: [Transactions]
+      summary: Create Action
+      operationId: createAction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [terminalId, cashRegisterId, request]
+              properties:
+                terminalId: { type: string }
+                cashRegisterId: { type: string }
+                actionType:
+                  type: string
+                  enum: [aade-fim-control]
+                request:
+                  type: object
+                  required: [token]
+                  properties:
+                    token: { type: string }
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  terminalId: { type: string }
+                  cashRegisterId: { type: string }
+                  actionType: { type: string, enum: [aade-fim-control] }
+                  actionId: { type: string, format: uuid }
+        '400': { description: Bad Request }
+        '401': { description: Unauthorized }
+
+  /ecr/v1/actions/{actionId}:
+    get:
+      tags: [Transactions]
+      summary: Get Action Details
+      operationId: getAction
+      parameters:
+        - name: actionId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  terminalId: { type: string }
+                  cashRegisterId: { type: string }
+                  actionType: { type: string }
+                  actionId: { type: string, format: uuid }
+                  successfullyProcessed: { type: boolean }
+                  response:
+                    type: object
+                    properties:
+                      status: { type: string }
+                      message: { type: string }
+        '202': { description: Action processing hasn't finished yet }
+        '404': { description: Action not found }
+
+  /ecr/v1/transactions:sale:
+    post:
+      tags: [Transactions]
+      summary: Initiate a Sales Request
+      operationId: sale
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaleRequest'
+      responses:
+        '200': { description: Successful Response }
+        '400': { description: Bad Request }
+        '401': { description: Unauthorized }
+        '409': { description: Session with this ID already exists }
+
+  /ecr/v1/transactions:preauth-completion:
+    post:
+      tags: [Transactions]
+      summary: Capture Pre-auth Request
+      operationId: capturePreauth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreauthCompletionRequest'
+      responses:
+        '200': { description: Successful Response }
+        '400': { description: Bad Request }
+        '401': { description: Unauthorized }
+        '404': { description: Parent session not found or aborted }
+        '409': { description: Session with this ID already exists }
+
+  /ecr/v1/transactions:refund:
+    post:
+      tags: [Transactions]
+      summary: Refund a Transaction
+      operationId: refund
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundRequest'
+      responses:
+        '200': { description: Successful Response }
+        '400': { description: Bad Request }
+        '401': { description: Unauthorized }
+        '404': { description: Parent session not found or aborted }
+        '409': { description: Session with this ID already exists }
+
+  /ecr/v1/transactions:unreferenced-refund:
+    post:
+      tags: [Transactions]
+      summary: Unreferenced Refund
+      operationId: unreferencedRefund
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnreferencedRefundRequest'
+      responses:
+        '200': { description: Successful Response }
+        '400': { description: Bad Request }
+        '401': { description: Unauthorized }
+        '409': { description: Session with this ID already exists }
+
+  /ecr/v1/transactions:fast-refund:
+    post:
+      tags: [Transactions]
+      summary: Fast Refund
+      operationId: fastRefund
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnreferencedRefundRequest'
+      responses:
+        '200': { description: Successful Response }
+        '400': { description: Bad Request }
+        '401': { description: Unauthorized }
+        '409': { description: Session with this ID already exists }
+
+  /ecr/v1/transactions:rebate:
+    post:
+      tags: [Transactions]
+      summary: Rebate
+      operationId: rebate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnreferencedRefundRequest'
+      responses:
+        '200': { description: Successful Response }
+        '400': { description: Bad Request }
+        '401': { description: Unauthorized }
+        '409': { description: Session with this ID already exists }
+
+  /ecr/v1/sessions/{sessionId}:
+    get:
+      tags: [Sessions]
+      summary: Retrieve Session by Id
+      operationId: getSession
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401': { description: Unauthorized }
+    delete:
+      tags: [Sessions]
+      summary: Abort Session
+      operationId: abortSession
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: cashRegisterId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Successful Response }
+        '401': { description: Unauthorized }
+        '403': { description: Only the creating cash register can abort }
+        '404': { description: Session id not found }
+        '409': { description: Abort process already started }
+
+  /ecr/v1/sessions:
+    get:
+      tags: [Sessions]
+      summary: Retrieve Session Info by Date
+      operationId: listSessionsByDate
+      parameters:
+        - name: date
+          in: query
+          required: false
+          schema: { type: string, format: date }
+        - name: AadeAutonomouslyOnly
+          in: query
+          required: false
+          schema: { type: boolean }
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Session'
+        '401': { description: Unauthorized }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        OAuth2 client_credentials token obtained from
+        accounts.vivapayments.com/connect/token (demo: demo-accounts...).
+  schemas:
+    SaleRequest:
+      type: object
+      required: [sessionId, terminalId, cashRegisterId, amount, currencyCode, merchantReference, tipAmount]
+      properties:
+        sessionId: { type: string, format: uuid }
+        terminalId: { type: string }
+        cashRegisterId: { type: string }
+        amount: { type: integer, format: int64, description: Amount in cents }
+        currencyCode: { type: string, description: ISO 4217 numeric ('978' = EUR) }
+        merchantReference: { type: string }
+        tipAmount: { type: integer, format: int32 }
+        customerTrns: { type: string }
+        paymentMethod: { type: string }
+        preauth: { type: boolean }
+        skipSurcharge: { type: boolean }
+        showTransactionResult: { type: boolean }
+        showReceipt: { type: boolean }
+        fiscalisationData: { type: object }
+    PreauthCompletionRequest:
+      type: object
+      required: [sessionId, parentSessionId, terminalId, cashRegisterId, amount, currencyCode, merchantReference]
+      properties:
+        sessionId: { type: string, format: uuid }
+        parentSessionId: { type: string, format: uuid }
+        terminalId: { type: string }
+        cashRegisterId: { type: string }
+        amount: { type: integer, format: int64 }
+        currencyCode: { type: string }
+        merchantReference: { type: string }
+        customerTrns: { type: string }
+        showTransactionResult: { type: boolean }
+        showReceipt: { type: boolean }
+    RefundRequest:
+      type: object
+      required: [sessionId, parentSessionId, terminalId, cashRegisterId, amount, currencyCode, merchantReference]
+      properties:
+        sessionId: { type: string, format: uuid }
+        parentSessionId: { type: string, format: uuid }
+        terminalId: { type: string }
+        cashRegisterId: { type: string }
+        amount: { type: integer, format: int64 }
+        currencyCode: { type: string }
+        merchantReference: { type: string }
+        customerTrns: { type: string }
+        showTransactionResult: { type: boolean }
+        showReceipt: { type: boolean }
+    UnreferencedRefundRequest:
+      type: object
+      required: [sessionId, terminalId, cashRegisterId, amount, currencyCode, merchantReference]
+      properties:
+        sessionId: { type: string, format: uuid }
+        terminalId: { type: string }
+        cashRegisterId: { type: string }
+        amount: { type: integer, format: int64 }
+        currencyCode: { type: string }
+        merchantReference: { type: string }
+        customerTrns: { type: string }
+        showTransactionResult: { type: boolean }
+        showReceipt: { type: boolean }
+        fiscalisationData: { type: object }
+    Session:
+      type: object
+      properties:
+        sessionId: { type: string, format: uuid }
+        terminalId: { type: string }
+        cashRegisterId: { type: string }
+        amount: { type: number }
+        currencyCode: { type: string }
+        merchantReference: { type: string }
+        customerTrns: { type: string }
+        tipAmount: { type: number }
+        success: { type: boolean }
+        eventId:
+          type: integer
+          format: int32
+          description: "0=success, 1100=in progress, 1006=declined, 1016=aborted, ..."
+        transactionEventId: { type: integer, format: int32 }
+        transactionId: { type: string }
+        transactionTypeId: { type: integer, format: int32 }
+        authorizationId: { type: string }
+        cardType: { type: string }
+        orderCode: { type: string }
+        message: { type: string }
+        transactionDateTime: { type: string, format: date-time }
