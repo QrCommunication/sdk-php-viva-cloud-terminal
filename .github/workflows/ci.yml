@@ -2,36 +2,52 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
+    tags: ['v*']
   pull_request:
-    branches: [main]
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        php-version: ['8.2', '8.3', '8.4']
-    name: PHP ${{ matrix.php-version }}
+        php-version: ['8.2', '8.3', '8.4', '8.5']
+        guzzle: ['^7.8', '^8.0']
+    name: PHP ${{ matrix.php-version }} / Guzzle ${{ matrix.guzzle }}
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ matrix.php-version }}
+          extensions: curl, dom, mbstring, xml, xmlwriter
           coverage: none
-          tools: composer:v2
-
+          tools: composer:2.10.3
       - name: Validate composer.json
         run: composer validate --strict
-
-      - name: Install dependencies
-        run: composer install --prefer-dist --no-progress --no-interaction
-
+      - name: Resolve latest compatible dependencies
+        env:
+          GUZZLE_CONSTRAINT: ${{ matrix.guzzle }}
+        run: composer update --with "guzzlehttp/guzzle:${GUZZLE_CONSTRAINT}" --prefer-dist --no-progress --no-interaction
+      - name: Check platform requirements
+        run: composer check-platform-reqs
+      - name: Audit all installed dependencies
+        run: composer audit --locked --format=json
+      - name: Record resolved versions
+        run: |
+          php --version
+          composer --version
+          composer show --format=json
       - name: Static analysis (PHPStan)
         run: vendor/bin/phpstan analyse src tests --level=6 --no-progress
-
       - name: Run tests (PHPUnit)
         run: vendor/bin/phpunit
